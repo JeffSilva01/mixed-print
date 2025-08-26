@@ -10,11 +10,14 @@ Sistema inteligente para criação de itens numerados otimizados para impressão
 - Posicionamento preciso dos números na imagem
 - Suporte a texto duplo (principal + canhoto)
 
-### 📐 **Configuração Inteligente de Layout**
+### 📐 **Controle de Dimensões e Layout**
+- **Dimensões em Milímetros**: Controle preciso da largura e altura das imagens
+- **Cálculo Automático**: Sistema calcula automaticamente baseado no DPI (254) da imagem
+- **Ajuste Manual**: Defina dimensões personalizadas com precisão de 0.01mm
+- **Manter Proporção**: Ajusta automaticamente uma dimensão ao alterar a outra
 - **Tamanhos de página**: A4, A3 ou personalizado
 - **Orientação**: Retrato ou paisagem
-- **Espaçamento**: Controle preciso entre itens
-- **Cálculo automático**: Sistema determina quantos itens cabem por página
+- **Layout otimizado**: Sistema determina quantos itens cabem por página
 - **Centralização automática**: Conteúdo sempre centralizado na página
 
 ### ✂️ **Agrupamento para Corte (Exclusivo!)**
@@ -53,25 +56,31 @@ Página 3: 3, 9, 15, 21, 27, 33
 - Faça upload da imagem que será o fundo dos itens
 - Sistema detecta automaticamente o tamanho e calcula o DPI
 
-### 2. **Defina os Números**
+### 2. **Configure as Dimensões**
+- **Cálculo Automático** (padrão): Sistema calcula automaticamente baseado no DPI da imagem
+- **Manual**: Defina largura e altura em milímetros com precisão
+- **Manter Proporção**: Ajusta automaticamente uma dimensão ao alterar a outra
+- Permite controle total sobre o tamanho final dos itens impressos
+
+### 3. **Defina os Números**
 - Configure o número inicial e final da sequência
 - Ex: de 1 a 1000 para rifas
 
-### 3. **Configure a Página**
+### 4. **Configure a Página**
 - Escolha o tamanho da página (A4, A3 ou personalizado)
 - Defina a orientação (retrato/paisagem)
 - Ajuste o espaçamento entre itens
 - **Ative "Agrupar ao Recortar"** se quiser facilitar a montagem
 
-### 4. **Personalize o Texto**
+### 5. **Personalize o Texto**
 - Escolha fonte, tamanho e cor
 - Configure negrito/itálico conforme necessário
 
-### 5. **Posicione os Números**
+### 6. **Posicione os Números**
 - Clique na imagem para definir onde os números devem aparecer
 - Configure posição secundária se necessário (para canhotos)
 
-### 6. **Gere o PDF**
+### 7. **Gere o PDF**
 - Clique em "Gerar PDF"
 - Arquivo será baixado com timestamp único
 
@@ -125,17 +134,18 @@ O projeto estará disponível em: `http://localhost:5173`
 
 ```
 src/
-├── components/           # Componentes React
-│   ├── ImageUpload.tsx   # Upload de imagens
-│   ├── NumberRange.tsx   # Configuração de números
-│   ├── PageSettings.tsx  # Configurações de página
-│   ├── TextEditor.tsx    # Editor de texto
-│   └── ImagePreview.tsx  # Preview e posicionamento
+├── components/                    # Componentes React
+│   ├── ImageUpload.tsx           # Upload de imagens
+│   ├── ImageDimensionsControl.tsx # Controle de dimensões em mm
+│   ├── NumberRange.tsx           # Configuração de números
+│   ├── PageSettings.tsx          # Configurações de página
+│   ├── TextEditor.tsx            # Editor de texto
+│   └── ImagePreview.tsx          # Preview e posicionamento
 ├── utils/
-│   ├── pdfGenerator.ts   # Geração de PDFs
-│   └── layoutCalculator.ts # Cálculos de layout
-├── App.tsx              # Componente principal
-└── main.tsx            # Entry point
+│   ├── pdfGenerator.ts           # Geração de PDFs
+│   └── layoutCalculator.ts       # Cálculos de layout
+├── App.tsx                       # Componente principal
+└── main.tsx                     # Entry point
 ```
 
 ## 🎯 Casos de Uso

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { CalculatedLayout, PageLayout } from '../types';
+import type { CalculatedLayout, PageLayout, ImageDimensions } from '../types';
 import { calculateOptimalLayout } from '../utils/layoutCalculator';
 import { DEFAULT_DPI } from '../constants';
 import { pixelsToMM } from '../utils/helpers';
@@ -10,6 +10,7 @@ interface UseLayoutCalculationProps {
   pageLayout: PageLayout;
   startNumber: number;
   endNumber: number;
+  imageDimensions: ImageDimensions;
 }
 
 /**
@@ -20,6 +21,7 @@ export const useLayoutCalculation = ({
   pageLayout,
   startNumber,
   endNumber,
+  imageDimensions,
 }: UseLayoutCalculationProps) => {
   const [calculatedLayout, setCalculatedLayout] = useState<CalculatedLayout | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -36,10 +38,21 @@ export const useLayoutCalculation = ({
       const img = new Image();
       img.onload = () => {
         try {
-          const imageSizeMM = {
-            width: pixelsToMM(img.width, DEFAULT_DPI),
-            height: pixelsToMM(img.height, DEFAULT_DPI),
-          };
+          let imageSizeMM;
+          
+          if (imageDimensions.useAutoCalculation) {
+            // Usar cálculo automático baseado no DPI
+            imageSizeMM = {
+              width: pixelsToMM(img.width, DEFAULT_DPI),
+              height: pixelsToMM(img.height, DEFAULT_DPI),
+            };
+          } else {
+            // Usar dimensões definidas pelo usuário
+            imageSizeMM = {
+              width: imageDimensions.widthMM,
+              height: imageDimensions.heightMM,
+            };
+          }
 
           console.log('Informações da imagem:', {
             larguraPx: img.width,
@@ -47,6 +60,7 @@ export const useLayoutCalculation = ({
             dpi: DEFAULT_DPI,
             larguraMM: imageSizeMM.width.toFixed(2),
             alturaMM: imageSizeMM.height.toFixed(2),
+            calculoAutomatico: imageDimensions.useAutoCalculation,
           });
 
           const totalRaffles = endNumber - startNumber + 1;
@@ -69,7 +83,7 @@ export const useLayoutCalculation = ({
 
       img.src = imageSrc;
     }, 300),
-    [imageSrc, pageLayout, startNumber, endNumber]
+    [imageSrc, pageLayout, startNumber, endNumber, imageDimensions]
   );
 
   useEffect(() => {

@@ -51,6 +51,7 @@ export interface SavedConfig {
   startNumber: number;
   endNumber: number;
   zeroPadding: number;
+  imageDimensions?: ImageDimensions;
 }
 
 // Props dos componentes
@@ -79,6 +80,14 @@ export interface ImagePreviewProps {
   onPositionSelect: (positions: DualPositions) => void;
   textStyle: TextStyle;
   zeroPadding?: number;
+}
+
+// Configuração de dimensões da imagem
+export interface ImageDimensions {
+  widthMM: number;
+  heightMM: number;
+  maintainAspectRatio: boolean;
+  useAutoCalculation: boolean;
 }
 
 export interface ImageUploadProps {

@@ -4,6 +4,7 @@ import NumberRange from "./components/NumberRange";
 import ImagePreview from "./components/ImagePreview";
 import TextEditor from "./components/TextEditor";
 import PageSettings from "./components/PageSettings";
+import ImageDimensionsControl from "./components/ImageDimensionsControl";
 import { generatePDF } from "./utils/pdfGenerator";
 import { useLayoutCalculation } from "./hooks/useLayoutCalculation";
 import { useConfigPersistence, useInitialConfig } from "./hooks/useLocalStorage";
@@ -13,8 +14,9 @@ import type {
   PageLayout,
   SavedConfig,
   PDFGenerationParams,
+  ImageDimensions,
 } from "./types";
-import { DEFAULT_TEXT_STYLE, DEFAULT_PAGE_LAYOUT } from "./constants";
+import { DEFAULT_TEXT_STYLE, DEFAULT_PAGE_LAYOUT, DEFAULT_IMAGE_DIMENSIONS } from "./constants";
 
 function App() {
   // Carregar configurações iniciais
@@ -42,6 +44,9 @@ function App() {
   const [pageLayout, setPageLayout] = useState<PageLayout>(
     initialConfig?.pageLayout ?? DEFAULT_PAGE_LAYOUT
   );
+  const [imageDimensions, setImageDimensions] = useState<ImageDimensions>(
+    initialConfig?.imageDimensions ?? DEFAULT_IMAGE_DIMENSIONS
+  );
 
   // Hook para cálculo de layout
   const { calculatedLayout, isCalculating } = useLayoutCalculation({
@@ -49,6 +54,7 @@ function App() {
     pageLayout,
     startNumber,
     endNumber,
+    imageDimensions,
   });
 
   // Hook para persistência de configurações
@@ -58,6 +64,7 @@ function App() {
     startNumber,
     endNumber,
     zeroPadding,
+    imageDimensions,
   };
   useConfigPersistence(configToSave);
 
@@ -140,6 +147,16 @@ function App() {
                 </h2>
                 <ImageUpload onImageSelect={handleImageSelect} />
               </div>
+
+              {imageSrc && (
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <ImageDimensionsControl
+                    dimensions={imageDimensions}
+                    onDimensionsChange={setImageDimensions}
+                    imageSrc={imageSrc}
+                  />
+                </div>
+              )}
 
               <div className="bg-white rounded-lg shadow-md p-4">
                 <NumberRange

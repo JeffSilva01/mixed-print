@@ -1,4 +1,4 @@
-import type { PageSize, TextStyle, PageLayout } from '../types';
+import type { PageSize, TextStyle, PageLayout, ImageDimensions } from '../types';
 
 // Constantes de armazenamento
 export const STORAGE_KEY = 'numerador-pdf-config';
@@ -17,6 +17,13 @@ export const DEFAULT_PAGE_LAYOUT: PageLayout = {
   cropMarks: false,
   orientation: 'portrait',
   groupForCutting: true,
+};
+
+export const DEFAULT_IMAGE_DIMENSIONS: ImageDimensions = {
+  widthMM: 50,
+  heightMM: 50,
+  maintainAspectRatio: true,
+  useAutoCalculation: true,
 };
 
 // Opções disponíveis
