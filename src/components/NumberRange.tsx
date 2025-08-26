@@ -1,35 +1,34 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
+import type { NumberRangeProps } from '../types';
 
-interface NumberRangeProps {
-  startNumber: number;
-  endNumber: number;
-  onStartNumberChange: (value: number) => void;
-  onEndNumberChange: (value: number) => void;
-}
-
-const NumberRange: React.FC<NumberRangeProps> = ({
+const NumberRange: React.FC<NumberRangeProps> = memo(({
   startNumber,
   endNumber,
   onStartNumberChange,
-  onEndNumberChange
+  onEndNumberChange,
+  zeroPadding,
+  onZeroPaddingChange
 }) => {
-  const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStartChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) || 0;
     onStartNumberChange(value);
-  };
+  }, [onStartNumberChange]);
 
-  const handleEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEndChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) || 0;
     onEndNumberChange(value);
-  };
+  }, [onEndNumberChange]);
 
-  const totalNumbers = endNumber >= startNumber ? endNumber - startNumber + 1 : 0;
+  const handlePaddingChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) || 0;
+    onZeroPaddingChange(value);
+  }, [onZeroPaddingChange]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h3 className="text-lg font-semibold text-gray-800">Faixa Numérica</h3>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Número Inicial
@@ -57,22 +56,29 @@ const NumberRange: React.FC<NumberRangeProps> = ({
             min={startNumber}
           />
         </div>
-      </div>
-      
-      {totalNumbers > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-          <p className="text-sm text-blue-800">
-            <span className="font-medium">Total de rifas:</span> {totalNumbers}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Número de Dígitos
+          </label>
+          <input
+            type="number"
+            value={zeroPadding}
+            onChange={handlePaddingChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Ex: 3"
+            min="0"
+            max="10"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            0 = tamanho natural, 3 = força 3 dígitos (001, 002...)
           </p>
-          {totalNumbers > 1000 && (
-            <p className="text-xs text-blue-600 mt-1">
-              ⚠️ Grande quantidade de páginas pode tornar a geração do PDF mais lenta
-            </p>
-          )}
         </div>
-      )}
+      </div>
     </div>
   );
-};
+});
+
+NumberRange.displayName = 'NumberRange';
 
 export default NumberRange;

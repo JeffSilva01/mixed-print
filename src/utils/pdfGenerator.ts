@@ -1,66 +1,14 @@
 import jsPDF from 'jspdf';
+import type { PDFGenerationParams } from '../types';
+import { formatNumberWithPadding } from './helpers';
 
-interface Position {
-  x: number;
-  y: number;
-}
-
-interface DualPositions {
-  primary: Position;
-  secondary?: Position;
-}
-
-interface TextStyle {
-  fontSize: number;
-  fontFamily: string;
-  bold: boolean;
-  italic: boolean;
-  color: string;
-}
-
-interface PageSize {
-  name: string;
-  width: number;
-  height: number;
-}
-
-interface PageLayout {
-  pageSize: PageSize;
-  customWidth?: number;
-  customHeight?: number;
-  spacing: number;
-  cropMarks: boolean;
-  orientation: 'portrait' | 'landscape';
-  groupForCutting: boolean;
-}
-
-interface CalculatedLayout {
-  itemsPerRow: number;
-  itemsPerColumn: number;
-  totalItemsPerPage: number;
-  actualItemWidth: number;
-  actualItemHeight: number;
-  totalPages: number;
-}
-
-interface PDFGeneratorOptions {
-  imageSrc: string;
-  startNumber: number;
-  endNumber: number;
-  dualPositions: DualPositions;
-  textStyle: TextStyle;
-  pageLayout: PageLayout;
-  calculatedLayout: CalculatedLayout;
-}
-
-// Função para desenhar marcas de corte ao redor da montagem e entre imagens
+// Função para desenhar marcas de corte ao redor da montagem
 const drawCropMarks = (
   pdf: any, 
   startX: number, 
   startY: number, 
   itemWidth: number, 
   itemHeight: number, 
-  spacing: number, 
   rows: number, 
   cols: number
 ) => {
@@ -71,11 +19,11 @@ const drawCropMarks = (
   const markOffset = 2; // 2mm de afastamento das bordas
   const markLength = 5; // 5mm fixo para todas as marcas
   
-  console.log('Desenhando marcas de corte completas:', { startX, startY, itemWidth, itemHeight, spacing, rows, cols, markLength });
+  console.log('Desenhando marcas de corte completas:', { startX, startY, itemWidth, itemHeight, rows, cols, markLength });
   
-  // Calcular dimensões totais da montagem
-  const totalWidth = cols * itemWidth + (cols - 1) * spacing;
-  const totalHeight = rows * itemHeight + (rows - 1) * spacing;
+  // Calcular dimensões totais da montagem (sem espaçamento)
+  const totalWidth = cols * itemWidth;
+  const totalHeight = rows * itemHeight;
   
   // Coordenadas das bordas da montagem com afastamento
   const leftEdge = startX - markOffset;
@@ -104,7 +52,7 @@ const drawCropMarks = (
   // Marcas verticais entre colunas - apenas nas bordas superior e inferior
   if (cols > 1) {
     for (let col = 1; col < cols; col++) {
-      const xDivision = startX + col * itemWidth + (col - 1) * spacing + spacing / 2;
+      const xDivision = startX + col * itemWidth;
       
       console.log(`Desenhando marca vertical entre colunas ${col-1} e ${col} em x: ${xDivision}`);
       
@@ -117,7 +65,7 @@ const drawCropMarks = (
   // Marcas horizontais entre linhas - apenas nas bordas esquerda e direita
   if (rows > 1) {
     for (let row = 1; row < rows; row++) {
-      const yDivision = startY + row * itemHeight + (row - 1) * spacing + spacing / 2;
+      const yDivision = startY + row * itemHeight;
       
       console.log(`Desenhando marca horizontal entre linhas ${row-1} e ${row} em y: ${yDivision}`);
       
@@ -143,7 +91,7 @@ const hexToRgb = (hex: string) => {
 const generateNumberSequence = (
   startNumber: number,
   endNumber: number,
-  layout: CalculatedLayout,
+  layout: PDFGenerationParams['calculatedLayout'],
   groupForCutting: boolean
 ): number[] => {
   const totalNumbers = endNumber - startNumber + 1;
@@ -229,8 +177,8 @@ const getFontName = (fontFamily: string, bold: boolean, italic: boolean): string
   return fontName;
 };
 
-export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> => {
-  const { imageSrc, startNumber, endNumber, dualPositions, textStyle, pageLayout, calculatedLayout } = options;
+export const generatePDF = async (options: PDFGenerationParams): Promise<void> => {
+  const { imageSrc, startNumber, endNumber, dualPositions, textStyle, pageLayout, calculatedLayout, zeroPadding } = options;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -292,9 +240,9 @@ export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> =
             pdf.addPage([pageWidth, pageHeight]);
           }
           
-          // Calcular dimensões totais do grid
-          const totalGridWidth = calculatedLayout.itemsPerRow * scaledItemWidth + (calculatedLayout.itemsPerRow - 1) * pageLayout.spacing;
-          const totalGridHeight = calculatedLayout.itemsPerColumn * scaledItemHeight + (calculatedLayout.itemsPerColumn - 1) * pageLayout.spacing;
+          // Calcular dimensões totais do grid (sem espaçamento)
+          const totalGridWidth = calculatedLayout.itemsPerRow * scaledItemWidth;
+          const totalGridHeight = calculatedLayout.itemsPerColumn * scaledItemHeight;
           
           // Centralizar o grid na página
           const startX = (pageWidth - totalGridWidth) / 2;
@@ -320,9 +268,9 @@ export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> =
               const currentNumber = numberSequence[sequenceIndex];
               console.log(`Adicionando item ${currentNumber} na posição [${row}, ${col}]`);
               
-              // Calcular posição de cada item
-              const x = startX + col * (scaledItemWidth + pageLayout.spacing);
-              const y = startY + row * (scaledItemHeight + pageLayout.spacing);
+              // Calcular posição de cada item (sem espaçamento)
+              const x = startX + col * scaledItemWidth;
+              const y = startY + row * scaledItemHeight;
               
               // Adicionar imagem
               pdf.addImage(imgData, 'JPEG', x, y, scaledItemWidth, scaledItemHeight);
@@ -344,8 +292,10 @@ export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> =
               const primaryNumberY = y + (dualPositions.primary.y / img.height) * scaledItemHeight;
               
               // Adicionar número na posição primária
-              const text = currentNumber.toString();
+              const text = formatNumberWithPadding(currentNumber, zeroPadding);
               const textWidth = pdf.getTextWidth(text);
+              
+              // Usar posição exata sem offset - deixar PDF e preview iguais
               pdf.text(text, primaryNumberX - (textWidth / 2), primaryNumberY);
               
               // Se houver posição secundária (canhoto), adicionar número lá também
@@ -367,7 +317,6 @@ export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> =
             console.log('Marcas de corte habilitadas, chamando drawCropMarks...');
             console.log('Parâmetros:', {
               pageLayout: pageLayout.cropMarks,
-              spacing: pageLayout.spacing,
               itemsPerColumn: calculatedLayout.itemsPerColumn,
               itemsPerRow: calculatedLayout.itemsPerRow
             });
@@ -378,12 +327,11 @@ export const generatePDF = async (options: PDFGeneratorOptions): Promise<void> =
               startY, 
               scaledItemWidth, 
               scaledItemHeight, 
-              pageLayout.spacing, 
               calculatedLayout.itemsPerColumn, 
               calculatedLayout.itemsPerRow
             );
           } else {
-            console.log('Marcas de corte desabilitadas ou sem espaçamento');
+            console.log('Marcas de corte desabilitadas');
           }
         }
         

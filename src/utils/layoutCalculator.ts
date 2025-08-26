@@ -2,7 +2,6 @@ interface PageLayout {
   pageSize: { name: string; width: number; height: number };
   customWidth?: number;
   customHeight?: number;
-  spacing: number;
   cropMarks: boolean;
   orientation: 'portrait' | 'landscape';
 }
@@ -50,9 +49,9 @@ export const calculateOptimalLayout = (
   // Testar configurações de 1x1 até 10x10
   for (let rows = 1; rows <= 10; rows++) {
     for (let cols = 1; cols <= 10; cols++) {
-      // Calcular espaço total necessário incluindo espaçamentos
-      const totalWidthNeeded = cols * imageWidth + (cols - 1) * pageLayout.spacing;
-      const totalHeightNeeded = rows * imageHeight + (rows - 1) * pageLayout.spacing;
+      // Calcular espaço total necessário (sem espaçamentos)
+      const totalWidthNeeded = cols * imageWidth;
+      const totalHeightNeeded = rows * imageHeight;
       
       // Verificar se cabe na área disponível
       if (totalWidthNeeded > availableWidth || totalHeightNeeded > availableHeight) {

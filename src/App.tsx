@@ -1,150 +1,88 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import ImageUpload from "./components/ImageUpload";
 import NumberRange from "./components/NumberRange";
 import ImagePreview from "./components/ImagePreview";
-import TextEditor, { type TextStyle } from "./components/TextEditor";
-import PageSettings, { type PageLayout } from "./components/PageSettings";
+import TextEditor from "./components/TextEditor";
+import PageSettings from "./components/PageSettings";
 import { generatePDF } from "./utils/pdfGenerator";
-import {
-  calculateOptimalLayout,
-  type CalculatedLayout,
-} from "./utils/layoutCalculator";
-
-interface Position {
-  x: number;
-  y: number;
-}
-
-interface DualPositions {
-  primary: Position;
-  secondary?: Position;
-}
+import { useLayoutCalculation } from "./hooks/useLayoutCalculation";
+import { useConfigPersistence, useInitialConfig } from "./hooks/useLocalStorage";
+import type {
+  DualPositions,
+  TextStyle,
+  PageLayout,
+  SavedConfig,
+  PDFGenerationParams,
+} from "./types";
+import { DEFAULT_TEXT_STYLE, DEFAULT_PAGE_LAYOUT } from "./constants";
 
 function App() {
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // Carregar configurações iniciais
+  const initialConfig = useInitialConfig();
+
+  // Estados principais
+  const [, setImageFile] = useState<File | null>(null);
   const [imageSrc, setImageSrc] = useState<string>("");
-  const [startNumber, setStartNumber] = useState<number>(1);
-  const [endNumber, setEndNumber] = useState<number>(100);
   const [dualPositions, setDualPositions] = useState<DualPositions | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [textStyle, setTextStyle] = useState<TextStyle>({
-    fontSize: 24,
-    fontFamily: "Arial",
-    bold: true,
-    italic: false,
-    color: "#FF0000",
-  });
-  const [pageLayout, setPageLayout] = useState<PageLayout>({
-    pageSize: { name: "A4", width: 210, height: 297 },
-    spacing: 5,
-    cropMarks: false,
-    orientation: "portrait",
-    groupForCutting: false,
-  });
-  const [calculatedLayout, setCalculatedLayout] =
-    useState<CalculatedLayout | null>(null);
 
-  const recalculateLayout = () => {
-    if (!imageSrc) return;
+  // Estados de configuração com valores padrão
+  const [startNumber, setStartNumber] = useState<number>(
+    initialConfig?.startNumber ?? 1
+  );
+  const [endNumber, setEndNumber] = useState<number>(
+    initialConfig?.endNumber ?? 100
+  );
+  const [zeroPadding, setZeroPadding] = useState<number>(
+    initialConfig?.zeroPadding ?? 0
+  );
+  const [textStyle, setTextStyle] = useState<TextStyle>(
+    initialConfig?.textStyle ?? DEFAULT_TEXT_STYLE
+  );
+  const [pageLayout, setPageLayout] = useState<PageLayout>(
+    initialConfig?.pageLayout ?? DEFAULT_PAGE_LAYOUT
+  );
 
-    const img = new Image();
-    img.onload = () => {
-      // Usar DPI fixo de 254 para arquivos JPG (padrão de design gráfico)
-      const dpi = 254;
-      console.log(`Usando DPI padrão para JPG: ${dpi}`);
-      
-      const imageSizeMM = {
-        width: (img.width * 25.4) / dpi,
-        height: (img.height * 25.4) / dpi,
-      };
-      
-      console.log('Informações da imagem JPG:', {
-        nomeArquivo: imageFile ? imageFile.name : 'desconhecido',
-        larguraPx: img.width,
-        alturaPx: img.height,
-        dpi: dpi,
-        larguraMM: imageSizeMM.width.toFixed(2),
-        alturaMM: imageSizeMM.height.toFixed(2)
-      });
-
-      const totalRaffles = endNumber - startNumber + 1;
-      const layout = calculateOptimalLayout(
-        pageLayout,
-        imageSizeMM,
-        totalRaffles,
-      );
-      setCalculatedLayout(layout);
-    };
-    img.src = imageSrc;
-  };
-
-  // Recalcular layout quando orientação, tamanhos de página ou números mudarem
-  useEffect(() => {
-    if (imageSrc) {
-      recalculateLayout();
-    }
-  }, [
-    pageLayout.orientation,
-    pageLayout.pageSize,
-    pageLayout.customWidth,
-    pageLayout.customHeight,
-    pageLayout.spacing,
+  // Hook para cálculo de layout
+  const { calculatedLayout, isCalculating } = useLayoutCalculation({
+    imageSrc,
+    pageLayout,
     startNumber,
     endNumber,
-  ]);
+  });
 
-  const handleImageSelect = (file: File, dataUrl: string) => {
+  // Hook para persistência de configurações
+  const configToSave: SavedConfig = {
+    textStyle,
+    pageLayout,
+    startNumber,
+    endNumber,
+    zeroPadding,
+  };
+  useConfigPersistence(configToSave);
+
+  // Handlers otimizados
+  const handleImageSelect = useCallback((file: File, dataUrl: string) => {
     setImageFile(file);
     setImageSrc(dataUrl);
     setDualPositions(null);
+  }, []);
 
-    // Calcular tamanho da imagem em mm e layout ótimo
-    const img = new Image();
-    img.onload = () => {
-      // Usar DPI fixo de 254 para arquivos JPG (padrão de design gráfico)
-      const dpi = 254;
-      console.log(`Usando DPI padrão para JPG: ${dpi}`);
-      
-      const imageSizeMM = {
-        width: (img.width * 25.4) / dpi,
-        height: (img.height * 25.4) / dpi,
-      };
-      
-      console.log('Upload de imagem JPG:', {
-        nomeArquivo: file ? file.name : 'desconhecido',
-        larguraPx: img.width,
-        alturaPx: img.height,
-        dpi: dpi,
-        larguraMM: imageSizeMM.width.toFixed(2),
-        alturaMM: imageSizeMM.height.toFixed(2)
-      });
-
-      const totalRaffles = endNumber - startNumber + 1;
-      const layout = calculateOptimalLayout(
-        pageLayout,
-        imageSizeMM,
-        totalRaffles,
-      );
-      setCalculatedLayout(layout);
-    };
-    img.src = dataUrl;
-  };
-
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = useCallback(async () => {
     if (!imageSrc || !dualPositions?.primary || endNumber < startNumber) {
       alert("Por favor, complete todas as configurações antes de gerar o PDF.");
+      return;
+    }
+
+    if (!calculatedLayout) {
+      alert("Aguarde o cálculo do layout ser concluído.");
       return;
     }
 
     setIsGenerating(true);
 
     try {
-      if (!calculatedLayout) {
-        alert("Aguarde o cálculo do layout ser concluído.");
-        return;
-      }
-
-      await generatePDF({
+      const params: PDFGenerationParams = {
         imageSrc,
         startNumber,
         endNumber,
@@ -152,27 +90,39 @@ function App() {
         textStyle,
         pageLayout,
         calculatedLayout,
-      });
+        zeroPadding,
+      };
 
-      alert("PDF gerado com sucesso!");
+      await generatePDF(params);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       alert("Erro ao gerar PDF. Tente novamente.");
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [
+    imageSrc,
+    dualPositions,
+    endNumber,
+    startNumber,
+    calculatedLayout,
+    textStyle,
+    pageLayout,
+    zeroPadding,
+  ]);
 
-  const canGeneratePDF = imageSrc && dualPositions?.primary && endNumber >= startNumber;
+  // Estados derivados
+  const canGeneratePDF =
+    imageSrc && dualPositions?.primary && endNumber >= startNumber;
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm p-6 flex-shrink-0">
+      <header className="bg-white shadow-sm p-4 flex-shrink-0">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">
             Numerador PDF
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm text-gray-600">
             Crie itens numerados otimizados para impressão - múltiplos itens por
             página
           </p>
@@ -180,34 +130,36 @@ function App() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="max-w-7xl mx-auto w-full flex gap-8 p-6">
-            {/* Configurações com scroll */}
-            <div className="w-1/2 overflow-y-auto pr-4">
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">
+        <div className="max-w-7xl mx-auto w-full flex gap-6 p-4">
+          {/* Configurações com scroll */}
+          <div className="w-1/2 overflow-y-auto pr-4">
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <h2 className="text-lg font-semibold text-gray-800 mb-3">
                   1. Upload da Imagem
                 </h2>
                 <ImageUpload onImageSelect={handleImageSelect} />
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="bg-white rounded-lg shadow-md p-4">
                 <NumberRange
                   startNumber={startNumber}
                   endNumber={endNumber}
                   onStartNumberChange={setStartNumber}
                   onEndNumberChange={setEndNumber}
+                  zeroPadding={zeroPadding}
+                  onZeroPaddingChange={setZeroPadding}
                 />
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="bg-white rounded-lg shadow-md p-4">
                 <PageSettings
                   layout={pageLayout}
                   onLayoutChange={setPageLayout}
                 />
               </div>
 
-              <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="bg-white rounded-lg shadow-md p-4">
                 <TextEditor
                   textStyle={textStyle}
                   onTextStyleChange={setTextStyle}
@@ -218,10 +170,10 @@ function App() {
 
           {/* Preview - Coluna direita fixa */}
           <div className="w-1/2 flex flex-col">
-            <div className="flex-1 space-y-6 overflow-y-auto">
+            <div className="flex-1 space-y-4 overflow-y-auto">
               {imageSrc && (
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                <div className="bg-white rounded-lg shadow-md p-4">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-3">
                     4. Posicionamento do Número
                   </h2>
                   <ImagePreview
@@ -229,14 +181,20 @@ function App() {
                     dualPositions={dualPositions}
                     onPositionSelect={setDualPositions}
                     textStyle={textStyle}
+                    zeroPadding={zeroPadding}
                   />
                 </div>
               )}
 
               {calculatedLayout && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="text-base font-semibold text-green-800 mb-2">
                     ✅ Layout Calculado Automaticamente
+                    {isCalculating && (
+                      <span className="ml-2 text-sm text-green-600">
+                        (Recalculando...)
+                      </span>
+                    )}
                   </h3>
                   <div className="text-sm text-green-700 space-y-2">
                     <p>
@@ -258,7 +216,7 @@ function App() {
                     </p>
                   </div>
 
-                  {/* Visualização da grade com espaçamento */}
+                  {/* Visualização da grade simplificada */}
                   <div className="mt-4 flex justify-center">
                     <div
                       className="border-2 border-green-400 bg-white relative"
@@ -276,62 +234,31 @@ function App() {
                       }}
                     >
                       {Array.from({
-                        length: calculatedLayout.totalItemsPerPage,
+                        length: Math.min(calculatedLayout.totalItemsPerPage, 12),
                       }).map((_, index) => {
                         const row = Math.floor(
-                          index / calculatedLayout.itemsPerRow,
+                          index / calculatedLayout.itemsPerRow
                         );
                         const col = index % calculatedLayout.itemsPerRow;
 
-                        // Debug apenas para o primeiro item
-                        if (index === 0) {
-                          console.log("Debug Preview:", {
-                            totalItems: calculatedLayout.totalItemsPerPage,
-                            rows: calculatedLayout.itemsPerColumn,
-                            cols: calculatedLayout.itemsPerRow,
-                            orientation: pageLayout.orientation,
-                          });
-                        }
-
-                        // Obter dimensões reais da página considerando orientação
-                        let realPageWidth = pageLayout.pageSize.width;
-                        let realPageHeight = pageLayout.pageSize.height;
-
-                        if (pageLayout.pageSize.name === "Personalizado") {
-                          realPageWidth = pageLayout.customWidth || 210;
-                          realPageHeight = pageLayout.customHeight || 297;
-                        }
-
-                        // Aplicar orientação
-                        if (pageLayout.orientation === "landscape") {
-                          [realPageWidth, realPageHeight] = [
-                            realPageWidth,
-                            realPageHeight,
-                          ];
-                        }
-
-                        // Calcular posição com espaçamento e centralização
-                        const spacingPercent =
-                          (pageLayout.spacing / realPageWidth) * 100;
                         const itemWidth =
-                          (calculatedLayout.actualItemWidth / realPageWidth) *
+                          (calculatedLayout.actualItemWidth /
+                            (pageLayout.orientation === "landscape"
+                              ? pageLayout.pageSize.height
+                              : pageLayout.pageSize.width)) *
                           100;
                         const itemHeight =
-                          (calculatedLayout.actualItemHeight / realPageHeight) *
+                          (calculatedLayout.actualItemHeight /
+                            (pageLayout.orientation === "landscape"
+                              ? pageLayout.pageSize.width
+                              : pageLayout.pageSize.height)) *
                           100;
-                        const spacingPercentVertical =
-                          (pageLayout.spacing / realPageHeight) * 100;
 
-                        // Calcular dimensões totais do grid
                         const totalGridWidthPercent =
-                          calculatedLayout.itemsPerRow * itemWidth +
-                          (calculatedLayout.itemsPerRow - 1) * spacingPercent;
+                          calculatedLayout.itemsPerRow * itemWidth;
                         const totalGridHeightPercent =
-                          calculatedLayout.itemsPerColumn * itemHeight +
-                          (calculatedLayout.itemsPerColumn - 1) *
-                            spacingPercentVertical;
+                          calculatedLayout.itemsPerColumn * itemHeight;
 
-                        // Centralizar o grid
                         const startXPercent = (100 - totalGridWidthPercent) / 2;
                         const startYPercent =
                           (100 - totalGridHeightPercent) / 2;
@@ -341,8 +268,8 @@ function App() {
                             key={index}
                             className="absolute border border-green-500 bg-green-100 flex items-center justify-center"
                             style={{
-                              left: `${startXPercent + col * (itemWidth + spacingPercent)}%`,
-                              top: `${startYPercent + row * (itemHeight + spacingPercentVertical)}%`,
+                              left: `${startXPercent + col * itemWidth}%`,
+                              top: `${startYPercent + row * itemHeight}%`,
                               width: `${itemWidth}%`,
                               height: `${itemHeight}%`,
                               fontSize: "8px",
@@ -359,30 +286,18 @@ function App() {
               )}
 
               {/* Instruções */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-blue-800 mb-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-base font-semibold text-blue-800 mb-2">
                   Como usar:
                 </h3>
-                <ol className="text-blue-700 space-y-2">
-                  <li>1. Faça upload da imagem que será o fundo do item</li>
-                  <li>2. Defina a faixa numérica (número inicial e final)</li>
-                  <li>
-                    3. Configure o tamanho da página e espaçamento entre itens
-                  </li>
-                  <li>
-                    4. Configure a formatação do texto (fonte, tamanho, cor,
-                    etc.)
-                  </li>
-                  <li>
-                    5. Clique na imagem para definir onde o número deve aparecer
-                  </li>
-                  <li>
-                    6. O sistema calculará automaticamente quantos itens cabem
-                    por página
-                  </li>
-                  <li>
-                    7. Clique em "Gerar PDF" para baixar o arquivo otimizado
-                  </li>
+                <ol className="text-blue-700 space-y-1 text-sm">
+                  <li>1. Upload da imagem de fundo</li>
+                  <li>2. Defina faixa numérica</li>
+                  <li>3. Configure página e espaçamento</li>
+                  <li>4. Configure formatação do texto</li>
+                  <li>5. Clique na imagem para posicionar número</li>
+                  <li>6. Layout calculado automaticamente</li>
+                  <li>7. Gere o PDF otimizado</li>
                 </ol>
               </div>
             </div>
